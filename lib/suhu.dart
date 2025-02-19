@@ -27,31 +27,27 @@ class _SuhuPageState extends State<suhupage> {
   List<Map<String, dynamic>> _temperatureHistory = [];
 
   @override
-  void initState() {
-    super.initState();
-    _updateTemperature();  // Update suhu pertama kali saat app dibuka
+void initState() {
+  super.initState();
+  _updateTemperature();
+  _updateDateTime();
+
+  _temperatureTimer = Timer.periodic(Duration(seconds: 5), (Timer t) {
+    _updateTemperature();
+  });
+
+  _dateTimeTimer = Timer.periodic(Duration(seconds: 1), (Timer t) {
     _updateDateTime();
+  });
 
-    // Timer untuk update suhu setiap 5 detik
-    _temperatureTimer = Timer.periodic(Duration(seconds: 5), (Timer t) {
-      _updateTemperature();
-    });
+  _historyTimer = Timer.periodic(Duration(minutes: 1), (Timer t) {
+    _addToHistory();
+  });
 
-    // Timer untuk menyimpan data ke Firebase setiap 30 menit
-    Timer.periodic(Duration(minutes: 30), (Timer t) {
-      _saveTemperatureToFirebase();
-    });
+  startFirebaseSync(); // Ganti Timer.periodic dengan loop async
+}
 
-    // Timer untuk update waktu dan tanggal setiap detik
-    _dateTimeTimer = Timer.periodic(Duration(seconds: 1), (Timer t) {
-      _updateDateTime();
-    });
 
-    // Timer untuk menyimpan data historis setiap 30 menit
-    _historyTimer = Timer.periodic(Duration(minutes: 30), (Timer t) {
-      _addToHistory();
-    });
-  }
 
   @override
   void dispose() {
@@ -60,6 +56,14 @@ class _SuhuPageState extends State<suhupage> {
     _historyTimer?.cancel();
     super.dispose();
   }
+
+  void startFirebaseSync() async {
+  while (true) {
+    await _saveTemperatureToFirebase();
+    await Future.delayed(Duration(minutes: 1)); // Tunggu 1 menit sebelum loop lagi
+  }
+}
+
 
   // Method untuk menambahkan data ke list historis
   void _addToHistory() {
@@ -94,37 +98,22 @@ class _SuhuPageState extends State<suhupage> {
   }
 
   Future<void> _saveTemperatureToFirebase() async {
-    final timestamp = DateTime.now().toIso8601String();
-  
-    // Pastikan semua data tidak null sebelum dikirim
-    if (_temperature == null || _humidity == null || _day == null || _date == null || _time == null) {
-      print("Ada data yang null, tidak mengirim ke Firebase");
-      return;
-    }
-
-    // Log nilai sebelum dikirim
-    print("Mengirim data ke Firebase:");
-    print("Suhu: $_temperature");
-    print("Kelembaban: $_humidity");
-    print("Hari: $_day");
-    print("Tanggal: $_date");
-    print("Waktu: $_time");
-    print("Timestamp: $timestamp");
-
-    try {
-      await _database.child('temperature_logs').push().set({
-        'temperature': _temperature,
-        'humidity': _humidity,
-        'day': _day,
-        'date': _date,
-        'time': _time,
-        'timestamp': timestamp,
-      });
-      print("Data suhu berhasil disimpan ke Firebase");
-    } catch (e) {
-      print("Gagal menyimpan data suhu ke Firebase: $e");
-    }
+  try {
+    final newDataRef = _database.child('temperature_logs').push();
+    await newDataRef.update({  // Ganti dari set() ke update()
+      'temperature': _temperature,
+      'humidity': _humidity,
+      'day': _day,
+      'date': _date,
+      'time': _time,
+      'timestamp': ServerValue.timestamp, // Timestamp dari Firebase langsung
+    });
+    print("✅ Data suhu berhasil diperbarui di Firebase");
+  } catch (e) {
+    print("❌ Gagal memperbarui data suhu di Firebase: $e");
   }
+}
+
 
   void _updateDateTime() {
     final now = DateTime.now();
@@ -222,27 +211,54 @@ class _SuhuPageState extends State<suhupage> {
 
             // Bagian bawah: Data historis dengan GridView
             Expanded(
-              child: GridView.builder(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, // 2 items per row
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: _temperatureHistory.length,
-                itemBuilder: (context, index) {
-                  final data = _temperatureHistory[index];
-                  return Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: GridView.builder(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2, // 2 items per row
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                      ),
+                      itemCount: _temperatureHistory.length > 10 ? 10 : _temperatureHistory.length,
+                      itemBuilder: (context, index) {
+                        final data = _temperatureHistory[index];
+                        return Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          elevation: 5,
+                          child: ListTile(
+                            contentPadding: EdgeInsets.all(16),
+                            title: Text("Suhu: ${data['temperature']}°C", style: TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text("Kelembaban: ${data['humidity']}% - ${data['date']} ${data['time']}"),
+                          ),
+                        );
+                      },
                     ),
-                    elevation: 5,
-                    child: ListTile(
-                      contentPadding: EdgeInsets.all(16),
-                      title: Text("Suhu: ${data['temperature']}°C", style: TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text("Kelembaban: ${data['humidity']}% - ${data['date']} ${data['time']}"),
+                  ),
+                  if (_temperatureHistory.length > 10)
+                    TextButton(
+                      onPressed: () {
+                        showModalBottomSheet(
+                          context: context,
+                          builder: (context) {
+                            return ListView.builder(
+                              itemCount: _temperatureHistory.length,
+                              itemBuilder: (context, index) {
+                                final data = _temperatureHistory[index];
+                                return ListTile(
+                                  title: Text("Suhu: ${data['temperature']}°C"),
+                                  subtitle: Text("Kelembaban: ${data['humidity']}% - ${data['date']} ${data['time']}"),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                      child: Text("Lihat Semua Data"),
                     ),
-                  );
-                },
+                ],
               ),
             ),
           ],
