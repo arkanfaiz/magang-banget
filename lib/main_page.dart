@@ -1,10 +1,78 @@
 import 'package:flutter/material.dart';
-//import 'package:flutter_application_3/cctv.dart';
+import 'package:flutter_application_3/cctv.dart';
+import 'package:flutter_application_3/laporan.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_application_3/monitoring.dart';
 import 'package:flutter_application_3/suhu.dart';
 
-class MainPage extends StatelessWidget {
+class MainPage extends StatefulWidget {
   const MainPage({super.key});
+
+  @override
+  _MainPageState createState() => _MainPageState();
+}
+
+class _MainPageState extends State<MainPage> {
+  late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+
+  @override
+  void initState() {
+    super.initState();
+    flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+    // Meminta izin untuk notifikasi
+    _requestNotificationPermission();
+
+    // Inisialisasi notifikasi
+    _initializeNotifications();
+  }
+
+  // Meminta izin untuk menampilkan notifikasi
+  Future<void> _requestNotificationPermission() async {
+    // Cek izin untuk notifikasi
+    PermissionStatus status = await Permission.notification.request();
+    if (status.isGranted) {
+      print("Izin notifikasi diberikan");
+    } else {
+      print("Izin notifikasi ditolak");
+    }
+  }
+
+  // Fungsi untuk inisialisasi notifikasi
+  Future<void> _initializeNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    final InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  // Fungsi untuk menampilkan notifikasi
+  Future<void> _showNotification() async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'channel_id',
+      'Network Connectivity',
+      channelDescription: 'Notifikasi koneksi jaringan',
+      importance: Importance.high,
+      priority: Priority.high,
+      ticker: 'ticker',
+    );
+
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      0, // ID notifikasi
+      'No Network Connection',
+      'Your device is not connected to the internet.',
+      platformDetails,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,23 +101,33 @@ class MainPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              //                buildMenuButton(
-              //   context,
-              //   icon: Icons.videocam,
-              //   label: "Cctv",
-              //   page: cctv(),
-              // ),
+              ElevatedButton(
+                onPressed: _showNotification, // Memanggil fungsi untuk menampilkan notifikasi
+                child: const Text('Test Notification'),
+              ),
               buildMenuButton(
                 context,
                 icon: Icons.thermostat,
                 label: "Suhu",
                 page: suhupage(),
               ),
-                            buildMenuButton(
+              buildMenuButton(
                 context,
                 icon: Icons.monitor_heart,
                 label: "Monitoring",
                 page: MonitoringPage(),
+              ),
+              buildMenuButton(
+                context,
+                icon: Icons.videocam,
+                label: "CCTV",
+                page: Cctv(),
+              ),
+              buildMenuButton(
+                context,
+                icon: Icons.article,
+                label: "Laporan",
+                page: laporanpage(),
               ),
             ],
           ),

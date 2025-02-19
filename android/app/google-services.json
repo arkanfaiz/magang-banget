@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "538106545427",
+    "firebase_url": "https://magangapi-8db91-default-rtdb.firebaseio.com",
+    "project_id": "magangapi-8db91",
+    "storage_bucket": "magangapi-8db91.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:538106545427:android:25529d5ff53392759006e6",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_3"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDay_4221dmJmtPdLLsy5-ArI_LlUw1dPU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
